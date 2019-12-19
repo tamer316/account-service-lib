@@ -19,7 +19,7 @@ trait AccountRepository[T <: AccountEntity] extends Repository[T] {
   def findByEmail(email: String): Future[Option[T]] = findOne(mq"{email:$email}")
 
   def updatePassword(id: BSONObjectID, password: String) = {
-    update(mq"{_id:$id}", mq"{$$set:{password:$password}}")
+    updateById(id, mq"{$$set:{password:$password}}")
   }
 
   def updateLock(id: BSONObjectID, locked: Boolean, lockExpires: Option[Instant] = None) = {
@@ -27,10 +27,10 @@ trait AccountRepository[T <: AccountEntity] extends Repository[T] {
       case Some(l) => mq"{$$set:{locked:$locked, lockExpires:$lockExpires}}"
       case None => mq"{$$set:{locked:$locked}, $$unset:{lockedExpires:1}}"
     }
-    update(mq"{_id:$id}", updateDoc)
+    updateById(id, updateDoc)
   }
 
   def updateLastLoggedIn(id: BSONObjectID, lastLoggedIn: Instant = Instant.now) = {
-    update(mq"{_id:$id}", mq"""{$$set:{lastLoggedIn: ${lastLoggedIn}}}""")
+    updateById(id, mq"""{$$set:{lastLoggedIn: ${lastLoggedIn}}}""")
   }
 }

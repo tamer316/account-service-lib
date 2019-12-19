@@ -1,6 +1,6 @@
 name := "account-service-lib"
 organization := "dev.tamer"
-version := "1.0.1"
+version := "1.0.2"
 
 scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8")
 

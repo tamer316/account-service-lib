@@ -10,14 +10,14 @@ import dev.choppers.repositories.{AccountLoginAttemptRepository, AccountReposito
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-trait AccountLoginSupport[T <: AccountEntity] extends AccountPasswordSupport {
+trait AccountLoginSupport[T <: AccountEntity, ID] extends AccountPasswordSupport {
 
   val unsuccessfulLoginAttemptsBeforeLock: Int
   val unsuccessfulLoginAttemptsHourThreshold: Int
 
   def accountLoginAttemptRepository: AccountLoginAttemptRepository
 
-  def accountRepository: AccountRepository[T]
+  def accountRepository: AccountRepository[T, ID]
 
   protected def successfulLogin(account: AccountEntity): Future[Unit] = {
     accountLoginAttemptRepository.deleteByAccount(account._id)

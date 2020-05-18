@@ -5,18 +5,14 @@ import java.time.Instant
 import com.github.limansky.mongoquery.reactive._
 import dev.choppers.model.persistence.AccountEntity._
 import dev.choppers.mongo.{Mongo, Repository}
-import reactivemongo.api.indexes.{Index, IndexType}
 import reactivemongo.bson._
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-trait AccountRepository[T <: AccountEntity] extends Repository[T] {
+trait AccountRepository[T <: AccountEntity, ID] extends Repository[T] {
   this: Mongo =>
 
-  collection.flatMap(_.indexesManager.ensure(Index(Seq(("email", IndexType.Ascending)), Some("emailIndex"), true)))
-
-  def findByEmail(email: String): Future[Option[T]] = findOne(mq"{email:$email}")
+  def findByIdentifier(identifier: ID): Future[Option[T]]
 
   def updatePassword(id: BSONObjectID, password: String) = {
     updateById(id, mq"{$$set:{password:$password}}")

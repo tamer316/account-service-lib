@@ -2,6 +2,7 @@ package dev.choppers.services
 
 import java.time.Instant
 
+import com.github.limansky.mongoquery.reactive._
 import com.osinka.i18n.Lang
 import dev.choppers.model.api.AccountProtocol._
 import dev.choppers.model.persistence.AccountEntity.AccountEntity
@@ -36,7 +37,7 @@ class AccountServiceSpec extends Specification with Mockito {
                               locked: Boolean = false,
                               lockExpires: Option[Instant] = None) extends AccountEntity
 
-    class CustomerRepository extends AccountRepository[CustomerEntity] {
+    class CustomerRepository extends AccountRepository[CustomerEntity, String] {
       val db = mock[Future[DefaultDB]]
 
       val collectionName = "customers"
@@ -44,7 +45,11 @@ class AccountServiceSpec extends Specification with Mockito {
       implicit val reader: BSONDocumentReader[CustomerEntity] = Macros.reader[CustomerEntity]
 
       implicit val writer: BSONDocumentWriter[CustomerEntity] = Macros.writer[CustomerEntity]
+      
+      override def findByIdentifier(identifier: String): Future[Option[CustomerEntity]] = findOne(mq"{email:$identifier}")
     }
+    
+    case class CustomerLogin(identifier: String, password: String, rememberMe: Boolean = false) extends AccountLogin[String]
 
     class CustomerLoginAttemptRepository extends AccountLoginAttemptRepository {
       val db = mock[Future[DefaultDB]]
@@ -53,7 +58,7 @@ class AccountServiceSpec extends Specification with Mockito {
     }
 
     class CustomerService(val accountRepository: CustomerRepository,
-                          val accountLoginAttemptRepository: AccountLoginAttemptRepository) extends AccountService[CustomerEntity, Customer] {
+                          val accountLoginAttemptRepository: AccountLoginAttemptRepository) extends AccountService[CustomerEntity, Customer, String] {
       val unsuccessfulLoginAttemptsBeforeLock: Int = 3
       val unsuccessfulLoginAttemptsHourThreshold: Int = 3
     }
@@ -93,32 +98,32 @@ class AccountServiceSpec extends Specification with Mockito {
 
   "authenticate" should {
     "Return Failure if customer not found" in new Context {
-      val customerLogin = AccountLogin("test@email.com", "password")
-      customerRepository.findByEmail(customerLogin.email) returns Future.successful(None)
+      val customerLogin = CustomerLogin("test@email.com", "password")
+      customerRepository.findByIdentifier(customerLogin.identifier) returns Future.successful(None)
 
       val res = Await.result(customerService.authenticate(customerLogin), 5 seconds)
       res mustEqual Left(AccountLoginError.IncorrectLogin)
 
-      eventually(there was one(customerRepository).findByEmail(customerLogin.email))
+      eventually(there was one(customerRepository).findByIdentifier(customerLogin.identifier))
       there were noMoreCallsTo(customerRepository)
     }
 
     "Return Failure if password is incorrect" in new Context {
-      val customerLogin = AccountLogin("test@email.com", "password")
+      val customerLogin = CustomerLogin("test@email.com", "password")
       val customerEntity = mock[CustomerEntity]
       customerEntity._id returns customerId
       customerEntity.enabled returns true
       customerEntity.locked returns false
       customerEntity.password returns BCrypt.hashpw("password1", BCrypt.gensalt())
 
-      customerRepository.findByEmail(customerLogin.email) returns Future.successful(Some(customerEntity))
+      customerRepository.findByIdentifier(customerLogin.identifier) returns Future.successful(Some(customerEntity))
       customerLoginAttemptRepository.insert(any[AccountLoginAttemptEntity]) returns Future.successful({})
       customerLoginAttemptRepository.findByAccount(Matchers.eq(customerId), any[Instant]) returns Future.successful(Nil)
 
       val res = Await.result(customerService.authenticate(customerLogin), 5 seconds)
       res mustEqual Left(AccountLoginError.IncorrectLogin)
 
-      eventually(there was one(customerRepository).findByEmail(customerLogin.email))
+      eventually(there was one(customerRepository).findByIdentifier(customerLogin.identifier))
       eventually(there was one(customerLoginAttemptRepository).insert(any[AccountLoginAttemptEntity]))
       eventually(there was one(customerLoginAttemptRepository).findByAccount(Matchers.eq(customerId), any[Instant]))
       there were noMoreCallsTo(customerRepository)
@@ -126,14 +131,14 @@ class AccountServiceSpec extends Specification with Mockito {
     }
 
     "Return Failure and lock account if password is incorrect and 3 attempted logins have occurred" in new Context {
-      val customerLogin = AccountLogin("test@email.com", "password")
+      val customerLogin = CustomerLogin("test@email.com", "password")
       val customerEntity = mock[CustomerEntity]
       customerEntity._id returns customerId
       customerEntity.enabled returns true
       customerEntity.locked returns false
       customerEntity.password returns BCrypt.hashpw("password1", BCrypt.gensalt())
 
-      customerRepository.findByEmail(customerLogin.email) returns Future.successful(Some(customerEntity))
+      customerRepository.findByIdentifier(customerLogin.identifier) returns Future.successful(Some(customerEntity))
       customerLoginAttemptRepository.insert(any[AccountLoginAttemptEntity]) returns Future.successful({})
       val mockedLoginAttempts = mock[Seq[AccountLoginAttemptEntity]]
       mockedLoginAttempts.size returns 3
@@ -142,7 +147,7 @@ class AccountServiceSpec extends Specification with Mockito {
       val res = Await.result(customerService.authenticate(customerLogin), 5 seconds)
       res mustEqual Left(AccountLoginError.IncorrectLogin)
 
-      eventually(there was one(customerRepository).findByEmail(customerLogin.email))
+      eventually(there was one(customerRepository).findByIdentifier(customerLogin.identifier))
       eventually(there was one(customerLoginAttemptRepository).insert(any[AccountLoginAttemptEntity]))
       eventually(there was one(customerLoginAttemptRepository).findByAccount(Matchers.eq(customerId), any[Instant]))
       eventually(there was one(customerRepository).updateLock(Matchers.eq(customerId), Matchers.eq(true), any[Some[Instant]]))
@@ -151,43 +156,43 @@ class AccountServiceSpec extends Specification with Mockito {
     }
 
     "Return Failure if account is locked and expiry is in the future" in new Context {
-      val customerLogin = AccountLogin("test@email.com", "password")
+      val customerLogin = CustomerLogin("test@email.com", "password")
       val customerEntity = mock[CustomerEntity]
       customerEntity._id returns customerId
       customerEntity.enabled returns true
       customerEntity.locked returns true
       customerEntity.lockExpires returns Some(Instant.now.plusSeconds(100))
 
-      customerRepository.findByEmail(customerLogin.email) returns Future.successful(Some(customerEntity))
+      customerRepository.findByIdentifier(customerLogin.identifier) returns Future.successful(Some(customerEntity))
 
       val res = Await.result(customerService.authenticate(customerLogin), 5 seconds)
       res mustEqual Left(AccountLoginError.AccountLocked)
 
-      eventually(there was one(customerRepository).findByEmail(customerLogin.email))
+      eventually(there was one(customerRepository).findByIdentifier(customerLogin.identifier))
       there were noMoreCallsTo(customerRepository)
       there were noCallsTo(customerLoginAttemptRepository)
     }
 
     "Return Failure if account is locked and expiry is not set" in new Context {
-      val customerLogin = AccountLogin("test@email.com", "password")
+      val customerLogin = CustomerLogin("test@email.com", "password")
       val customerEntity = mock[CustomerEntity]
       customerEntity._id returns customerId
       customerEntity.enabled returns true
       customerEntity.locked returns true
       customerEntity.lockExpires returns None
 
-      customerRepository.findByEmail(customerLogin.email) returns Future.successful(Some(customerEntity))
+      customerRepository.findByIdentifier(customerLogin.identifier) returns Future.successful(Some(customerEntity))
 
       val res = Await.result(customerService.authenticate(customerLogin), 5 seconds)
       res mustEqual Left(AccountLoginError.AccountLocked)
 
-      eventually(there was one(customerRepository).findByEmail(customerLogin.email))
+      eventually(there was one(customerRepository).findByIdentifier(customerLogin.identifier))
       there were noMoreCallsTo(customerRepository)
       there were noCallsTo(customerLoginAttemptRepository)
     }
 
     "Successfully Log customer in if Account locked but expiry has passed" in new Context {
-      val customerLogin = AccountLogin("test@email.com", "password")
+      val customerLogin = CustomerLogin("test@email.com", "password")
       val customerEntity = CustomerEntity(
         email = "test@email.com",
         password = BCrypt.hashpw("password", BCrypt.gensalt()),
@@ -196,32 +201,32 @@ class AccountServiceSpec extends Specification with Mockito {
       )
       val customer = Customer(customerEntity._id.stringify, "test@email.com")
 
-      customerRepository.findByEmail(customerLogin.email) returns Future.successful(Some(customerEntity))
+      customerRepository.findByIdentifier(customerLogin.identifier) returns Future.successful(Some(customerEntity))
 
       val res = Await.result(customerService.authenticate(customerLogin), 5 seconds)
       res mustEqual Right(customer)
 
-      eventually(there was one(customerRepository).findByEmail(customerLogin.email))
+      eventually(there was one(customerRepository).findByIdentifier(customerLogin.identifier))
     }
 
     "Return Failure if account is disabled" in new Context {
-      val customerLogin = AccountLogin("test@email.com", "password")
+      val customerLogin = CustomerLogin("test@email.com", "password")
       val customerEntity = mock[CustomerEntity]
       customerEntity._id returns customerId
       customerEntity.enabled returns false
 
-      customerRepository.findByEmail(customerLogin.email) returns Future.successful(Some(customerEntity))
+      customerRepository.findByIdentifier(customerLogin.identifier) returns Future.successful(Some(customerEntity))
 
       val res = Await.result(customerService.authenticate(customerLogin), 5 seconds)
       res mustEqual Left(AccountLoginError.AccountDisabled)
 
-      eventually(there was one(customerRepository).findByEmail(customerLogin.email))
+      eventually(there was one(customerRepository).findByIdentifier(customerLogin.identifier))
       there were noMoreCallsTo(customerRepository)
       there were noCallsTo(customerLoginAttemptRepository)
     }
 
     "Successfully Log customer in" in new Context {
-      val customerLogin = AccountLogin("test@email.com", "password")
+      val customerLogin = CustomerLogin("test@email.com", "password")
       val customerEntity = CustomerEntity(
         email = "test@email.com",
         password = BCrypt.hashpw("password", BCrypt.gensalt())
@@ -229,12 +234,12 @@ class AccountServiceSpec extends Specification with Mockito {
       )
       val customer = Customer(customerEntity._id.stringify, "test@email.com")
 
-      customerRepository.findByEmail(customerLogin.email) returns Future.successful(Some(customerEntity))
+      customerRepository.findByIdentifier(customerLogin.identifier) returns Future.successful(Some(customerEntity))
 
       val res = Await.result(customerService.authenticate(customerLogin), 5 seconds)
       res mustEqual Right(customer)
 
-      eventually(there was one(customerRepository).findByEmail(customerLogin.email))
+      eventually(there was one(customerRepository).findByIdentifier(customerLogin.identifier))
       eventually(there was one(customerLoginAttemptRepository).deleteByAccount(customerEntity._id))
       eventually(there was one(customerRepository).updateLock(customerEntity._id, false))
       eventually(there was one(customerRepository).updateLastLoggedIn(customerEntity._id))

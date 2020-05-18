@@ -3,6 +3,7 @@ package dev.choppers.services
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
+import com.github.limansky.mongoquery.reactive._
 import com.osinka.i18n.Lang
 import dev.choppers.email.client.{EmailClient, EmailTemplate}
 import dev.choppers.model.api.AccountProtocol.{Account, AccountPasswordReset, AccountPasswordUpdate}
@@ -38,7 +39,7 @@ class AccountPasswordServiceSpec extends Specification with Mockito {
                               locked: Boolean = false,
                               lockExpires: Option[Instant] = None) extends AccountEntity
 
-    class CustomerRepository extends AccountRepository[CustomerEntity] {
+    class CustomerRepository extends AccountRepository[CustomerEntity, String] {
       val db = mock[Future[DefaultDB]]
 
       val collectionName = "customers"
@@ -46,11 +47,13 @@ class AccountPasswordServiceSpec extends Specification with Mockito {
       implicit val reader: BSONDocumentReader[CustomerEntity] = Macros.reader[CustomerEntity]
 
       implicit val writer: BSONDocumentWriter[CustomerEntity] = Macros.writer[CustomerEntity]
+
+      override def findByIdentifier(identifier: String): Future[Option[CustomerEntity]] = findOne(mq"{email:$identifier}")
     }
 
     class CustomerPasswordService(val accountRepository: CustomerRepository,
                                   val accountPasswordTokenRepository: AccountPasswordTokenRepository,
-                                  val emailClient: EmailClient) extends AccountPasswordService[CustomerEntity, Customer] {
+                                  val emailClient: EmailClient) extends AccountPasswordService[CustomerEntity, Customer, String] {
 
       def passwordChangedEmail(account: Customer)(implicit lang: Lang): EmailTemplate = mock[EmailTemplate]
 
@@ -119,26 +122,26 @@ class AccountPasswordServiceSpec extends Specification with Mockito {
 
   "generatePasswordToken" should {
     "Return Failure if account email not found" in new Context {
-      accountRepository.findByEmail("test@email.com") returns Future.successful(None)
+      accountRepository.findByIdentifier("test@email.com") returns Future.successful(None)
 
       val res = Await.result(accountPasswordService.generatePasswordToken("test@email.com"), 5 seconds)
       res mustEqual GeneratePasswordTokenResult.EmailNotFound
 
-      there was one(accountRepository).findByEmail("test@email.com")
+      there was one(accountRepository).findByIdentifier("test@email.com")
       there were noCallsTo(emailClient)
     }
 
     "Generate a password reset Token successfully" in new Context {
       val customerEntity = mock[CustomerEntity]
       customerEntity._id returns accountId
-      accountRepository.findByEmail("test@email.com") returns Future.successful(Some(customerEntity))
+      accountRepository.findByIdentifier("test@email.com") returns Future.successful(Some(customerEntity))
       customerPasswordTokenRepository.insert(any[AccountPasswordTokenEntity]) returns Future.successful({})
       emailClient.sendEmail(any[EmailTemplate]) returns Future.successful({})
 
       val res = Await.result(accountPasswordService.generatePasswordToken("test@email.com"), 5 seconds)
       res mustEqual GeneratePasswordTokenResult.Success
 
-      there was one(accountRepository).findByEmail("test@email.com")
+      there was one(accountRepository).findByIdentifier("test@email.com")
 
       val passResetTokenEntityCaptor = capture[AccountPasswordTokenEntity]
       there was one(customerPasswordTokenRepository).insert(passResetTokenEntityCaptor.capture)

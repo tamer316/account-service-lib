@@ -9,8 +9,6 @@ object AccountEntity {
   trait AccountEntity {
     val _id: BSONObjectID
 
-    val email: String
-
     val password: String
 
     val createdDate: Instant

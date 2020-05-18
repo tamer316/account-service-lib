@@ -8,26 +8,26 @@ import grizzled.slf4j.Logging
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-trait AccountService[E <: AccountEntity, T <: Account] extends AccountLoginSupport[E] with Logging {
+trait AccountService[E <: AccountEntity, T <: Account, ID] extends AccountLoginSupport[E, ID] with Logging {
 
   def findById(id: String)(implicit transformEntity: E => T): Future[Option[T]] = accountRepository.findById(id) map { c =>
     c.map { b => b }
   }
 
-  def authenticate(accountLogin: AccountLogin)(implicit transformEntity: E => T): Future[Either[AccountLoginError, T]] = {
-    accountRepository.findByEmail(accountLogin.email) map {
+  def authenticate(accountLogin: AccountLogin[ID])(implicit transformEntity: E => T): Future[Either[AccountLoginError, T]] = {
+    accountRepository.findByIdentifier(accountLogin.identifier) map {
       case Some(account) =>
         if (account.enabled) {
-          checkIfAccountLocked(account) match {
-            case true => Left(AccountLoginError.AccountLocked)
-            case false =>
-              if (verifyPassword(accountLogin.password, account)) {
-                successfulLogin(account)
-                Right(account)
-              } else {
-                unsuccessfulLogin(account)
-                Left(AccountLoginError.IncorrectLogin)
-              }
+          if (checkIfAccountLocked(account)) {
+            Left(AccountLoginError.AccountLocked)
+          } else {
+            if (verifyPassword(accountLogin.password, account)) {
+              successfulLogin(account)
+              Right(account)
+            } else {
+              unsuccessfulLogin(account)
+              Left(AccountLoginError.IncorrectLogin)
+            }
           }
         } else {
           Left(AccountLoginError.AccountDisabled)

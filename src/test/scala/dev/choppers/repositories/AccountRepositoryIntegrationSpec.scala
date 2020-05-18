@@ -2,13 +2,14 @@ package dev.choppers.repositories
 
 import java.time.Instant
 
+import com.github.limansky.mongoquery.reactive._
 import dev.choppers.model.persistence.AccountEntity._
 import dev.choppers.mongo.EmbeddedMongoSpecification
 import org.specs2.mutable.Specification
 import org.specs2.specification.Scope
 import reactivemongo.bson.{BSONDocumentReader, BSONDocumentWriter, BSONObjectID, Macros}
 
-import scala.concurrent.Await
+import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
 
 class AccountRepositoryIntegrationSpec extends Specification with EmbeddedMongoSpecification {
@@ -24,12 +25,14 @@ class AccountRepositoryIntegrationSpec extends Specification with EmbeddedMongoS
                               locked: Boolean = false,
                               lockExpires: Option[Instant] = None) extends AccountEntity
 
-    class CustomerRepository extends AccountRepository[CustomerEntity] with TestMongo {
+    class CustomerRepository extends AccountRepository[CustomerEntity, String] with TestMongo {
       val collectionName = "customers"
 
       implicit val reader: BSONDocumentReader[CustomerEntity] = Macros.reader[CustomerEntity]
 
       implicit val writer: BSONDocumentWriter[CustomerEntity] = Macros.writer[CustomerEntity]
+
+      override def findByIdentifier(identifier: String): Future[Option[CustomerEntity]] = findOne(mq"{email:$identifier}")
     }
 
     val account1 = CustomerEntity(
@@ -50,7 +53,7 @@ class AccountRepositoryIntegrationSpec extends Specification with EmbeddedMongoS
       Await.result(customerRepository.insert(account1), 5 seconds)
       Await.result(customerRepository.insert(account2), 5 seconds)
 
-      val res = Await.result(customerRepository.findByEmail("test1@email.com"), 5 seconds)
+      val res = Await.result(customerRepository.findByIdentifier("test1@email.com"), 5 seconds)
 
       res mustEqual Some(account1)
     }
@@ -59,7 +62,7 @@ class AccountRepositoryIntegrationSpec extends Specification with EmbeddedMongoS
       Await.result(customerRepository.insert(account1), 5 seconds)
       Await.result(customerRepository.insert(account2), 5 seconds)
 
-      val res = Await.result(customerRepository.findByEmail("test3@email.com"), 5 seconds)
+      val res = Await.result(customerRepository.findByIdentifier("test3@email.com"), 5 seconds)
 
       res mustEqual None
     }

@@ -18,9 +18,9 @@ import reactivemongo.bson.BSONObjectID
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-trait AccountPasswordService[E <: AccountEntity, T <: Account] extends AccountPasswordSupport {
+trait AccountPasswordService[E <: AccountEntity, T <: Account, ID] extends AccountPasswordSupport {
 
-  val accountRepository: AccountRepository[E]
+  val accountRepository: AccountRepository[E, ID]
 
   val accountPasswordTokenRepository: AccountPasswordTokenRepository
 
@@ -46,8 +46,8 @@ trait AccountPasswordService[E <: AccountEntity, T <: Account] extends AccountPa
     }
   }
 
-  def generatePasswordToken(email: String)(implicit lang: Lang, transformEntity: E => T): Future[GeneratePasswordTokenResult] = {
-    accountRepository.findByEmail(email) flatMap {
+  def generatePasswordToken(identifier: ID)(implicit lang: Lang, transformEntity: E => T): Future[GeneratePasswordTokenResult] = {
+    accountRepository.findByIdentifier(identifier) flatMap {
       case Some(account) =>
         val token = UUID.randomUUID().toString
         accountPasswordTokenRepository.insert(

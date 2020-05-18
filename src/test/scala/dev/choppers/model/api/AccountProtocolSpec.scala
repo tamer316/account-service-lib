@@ -7,36 +7,23 @@ class AccountProtocolSpec extends Specification {
 
   "AccountSignup creation" should {
 
-    case class CustomerSignup(var email: String, var password: String) extends AccountSignup
-
-    "Fail if Email is invalid" in {
-      CustomerSignup("email", "password") should throwA[IllegalArgumentException]
-    }
-
-    "Fail if Email is not provided" in {
-      CustomerSignup("", "password") should throwA[IllegalArgumentException]
-    }
+    case class CustomerSignup(password: String) extends AccountSignup
 
     "Fail if password is not provided" in {
-      CustomerSignup("test@email.com", "") should throwA[IllegalArgumentException]
+      CustomerSignup("") should throwA[IllegalArgumentException]
     }
 
     "Fail if password is less than 8 characters long" in {
-      CustomerSignup("test@email.com", "pass") should throwA[IllegalArgumentException]
+      CustomerSignup("pass") should throwA[IllegalArgumentException]
     }
   }
 
   "AccountLogin creation" should {
-    "Fail if Email is invalid" in {
-      AccountLogin("email", "password") should throwA[IllegalArgumentException]
-    }
 
-    "Fail if Email is not provided" in {
-      AccountLogin("", "password") should throwA[IllegalArgumentException]
-    }
+    case class CustomerLogin(identifier: String, password: String, rememberMe: Boolean = false) extends AccountLogin[String]
 
     "Fail if password is not provided" in {
-      AccountLogin("test@email.com", "") should throwA[IllegalArgumentException]
+      CustomerLogin("test@email.com", "") should throwA[IllegalArgumentException]
     }
   }
 
@@ -51,16 +38,6 @@ class AccountProtocolSpec extends Specification {
 
     "Fail if New Password is less than 8 characters long" in {
       AccountPasswordUpdate("password", "pass") should throwA[IllegalArgumentException]
-    }
-  }
-
-  "CustomerForgotPassword creation" should {
-    "Fail if Email is invalid" in {
-      AccountForgotPassword("email") should throwA[IllegalArgumentException]
-    }
-
-    "Fail if Email is not provided" in {
-      AccountForgotPassword("") should throwA[IllegalArgumentException]
     }
   }
 

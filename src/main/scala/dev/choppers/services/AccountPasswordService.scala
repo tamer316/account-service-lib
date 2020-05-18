@@ -6,7 +6,7 @@ import java.util.UUID
 
 import com.osinka.i18n.Lang
 import dev.choppers.email.client.{EmailClient, EmailTemplate}
-import dev.choppers.model.api.AccountProtocol.{Account, AccountPasswordReset, AccountPasswordUpdate}
+import dev.choppers.model.api.AccountProtocol.{AccountPasswordReset, AccountPasswordUpdate}
 import dev.choppers.model.persistence.AccountEntity.AccountEntity
 import dev.choppers.model.persistence.AccountPasswordTokenEntity.AccountPasswordTokenEntity
 import dev.choppers.repositories.{AccountPasswordTokenRepository, AccountRepository}
@@ -18,7 +18,7 @@ import reactivemongo.bson.BSONObjectID
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-trait AccountPasswordService[E <: AccountEntity, T <: Account, ID] extends AccountPasswordSupport {
+trait AccountPasswordService[E <: AccountEntity, T, ID] extends AccountPasswordSupport {
 
   val accountRepository: AccountRepository[E, ID]
 

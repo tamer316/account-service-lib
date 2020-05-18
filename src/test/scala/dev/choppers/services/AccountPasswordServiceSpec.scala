@@ -6,7 +6,7 @@ import java.time.temporal.ChronoUnit
 import com.github.limansky.mongoquery.reactive._
 import com.osinka.i18n.Lang
 import dev.choppers.email.client.{EmailClient, EmailTemplate}
-import dev.choppers.model.api.AccountProtocol.{Account, AccountPasswordReset, AccountPasswordUpdate}
+import dev.choppers.model.api.AccountProtocol.{AccountPasswordReset, AccountPasswordUpdate}
 import dev.choppers.model.persistence.AccountEntity.AccountEntity
 import dev.choppers.model.persistence.AccountPasswordTokenEntity.AccountPasswordTokenEntity
 import dev.choppers.repositories.{AccountPasswordTokenRepository, AccountRepository}
@@ -28,7 +28,7 @@ class AccountPasswordServiceSpec extends Specification with Mockito {
       Customer(customerEntity._id.stringify, customerEntity.email)
     }
 
-    case class Customer(id: String, email: String) extends Account
+    case class Customer(id: String, email: String)
 
     case class CustomerEntity(_id: BSONObjectID = BSONObjectID.generate,
                               email: String,

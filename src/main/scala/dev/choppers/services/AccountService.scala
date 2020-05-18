@@ -8,7 +8,7 @@ import grizzled.slf4j.Logging
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-trait AccountService[E <: AccountEntity, T <: Account, ID] extends AccountLoginSupport[E, ID] with Logging {
+trait AccountService[E <: AccountEntity, T, ID] extends AccountLoginSupport[E, ID] with Logging {
 
   def findById(id: String)(implicit transformEntity: E => T): Future[Option[T]] = accountRepository.findById(id) map { c =>
     c.map { b => b }

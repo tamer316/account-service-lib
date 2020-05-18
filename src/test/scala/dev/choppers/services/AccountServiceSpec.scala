@@ -26,7 +26,7 @@ class AccountServiceSpec extends Specification with Mockito {
       Customer(customerEntity._id.stringify, customerEntity.email)
     }
 
-    case class Customer(id: String, email: String) extends Account
+    case class Customer(id: String, email: String)
 
     case class CustomerEntity(_id: BSONObjectID = BSONObjectID.generate,
                               email: String,

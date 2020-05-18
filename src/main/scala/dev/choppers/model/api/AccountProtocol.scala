@@ -6,21 +6,16 @@ import spray.json.DefaultJsonProtocol
 
 object AccountProtocol extends Validators {
 
-  trait Account {
-    val id: String
-    val email: String
-  }
-
   trait AccountSignup {
-    val password: String
+    def password: String
 
     requirePassword("Password", password)
   }
 
   trait AccountLogin[ID] {
     def identifier: ID
-    val password: String
-    val rememberMe: Boolean
+    def password: String
+    def rememberMe: Boolean
 
     requireNonEmptyText("Password", password)
   }

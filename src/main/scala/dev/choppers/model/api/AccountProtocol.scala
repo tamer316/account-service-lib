@@ -25,10 +25,6 @@ object AccountProtocol extends Validators {
     requirePassword("New password", newPassword)
   }
 
-  trait AccountForgotPassword[ID] {
-    def identifier: ID
-  }
-
   case class AccountPasswordReset(var token: String, password: String) {
     token = token.trim
 

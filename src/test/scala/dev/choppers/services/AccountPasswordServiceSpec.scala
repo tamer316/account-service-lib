@@ -121,27 +121,16 @@ class AccountPasswordServiceSpec extends Specification with Mockito {
   }
 
   "generatePasswordToken" should {
-    "Return Failure if account email not found" in new Context {
-      accountRepository.findByIdentifier("test@email.com") returns Future.successful(None)
-
-      val res = Await.result(accountPasswordService.generatePasswordToken("test@email.com"), 5 seconds)
-      res mustEqual GeneratePasswordTokenResult.EmailNotFound
-
-      there was one(accountRepository).findByIdentifier("test@email.com")
-      there were noCallsTo(emailClient)
-    }
-
     "Generate a password reset Token successfully" in new Context {
       val customerEntity = mock[CustomerEntity]
       customerEntity._id returns accountId
-      accountRepository.findByIdentifier("test@email.com") returns Future.successful(Some(customerEntity))
       customerPasswordTokenRepository.insert(any[AccountPasswordTokenEntity]) returns Future.successful({})
       emailClient.sendEmail(any[EmailTemplate]) returns Future.successful({})
 
-      val res = Await.result(accountPasswordService.generatePasswordToken("test@email.com"), 5 seconds)
-      res mustEqual GeneratePasswordTokenResult.Success
+      val res = Await.result(accountPasswordService.generatePasswordToken(customerEntity), 5 seconds)
+      res mustEqual ()
 
-      there was one(accountRepository).findByIdentifier("test@email.com")
+      there were noCallsTo(accountRepository)
 
       val passResetTokenEntityCaptor = capture[AccountPasswordTokenEntity]
       there was one(customerPasswordTokenRepository).insert(passResetTokenEntityCaptor.capture)

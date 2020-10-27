@@ -1,6 +1,6 @@
 resolvers += "jitpack" at "https://jitpack.io"
 
-val microServiceLibV = "1.1.4"
+val microServiceLibV = "1.2.0"
 
 libraryDependencies ++= {
   Seq(
